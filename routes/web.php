@@ -2,18 +2,10 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\RouteController;
+use Maatwebsite\Excel\Facades\Excel;
 
 // ==================== ROTAS PÚBLICAS ====================
 Route::get('/', [RouteController::class, 'home'])->name('home');
-
-// ==================== ROTA DE EXPORTAÇÃO (IGUAL À QUE FUNCIONOU) ====================
-Route::get('/livros/exportar', function() {
-    try {
-        return Excel::download(new \App\Exports\LivrosExport, 'livros_' . date('Y-m-d_H-i-s') . '.xlsx');
-    } catch (\Exception $e) {
-        return "Erro: " . $e->getMessage();
-    }
-})->name('livros.export');
 
 // ==================== AUTENTICAÇÃO ====================
 Route::middleware(['guest'])->group(function () {
@@ -28,8 +20,22 @@ Route::middleware(['guest'])->group(function () {
 
 Route::post('/logout', [RouteController::class, 'logout'])->middleware('auth')->name('logout');
 
-// ==================== ROTAS PROTEGIDAS ====================
+// ==================== VERIFICAÇÃO DE EMAIL ====================
 Route::middleware(['auth'])->group(function () {
+    Route::get('/email/verify', [RouteController::class, 'verificationNotice'])
+        ->name('verification.notice');
+
+    Route::get('/email/verify/{id}/{hash}', [RouteController::class, 'verificationVerify'])
+        ->middleware(['signed', 'throttle:6,1'])
+        ->name('verification.verify');
+
+    Route::post('/email/verification-notification', [RouteController::class, 'verificationSend'])
+        ->middleware(['throttle:6,1'])
+        ->name('verification.send');
+});
+
+// ==================== ROTAS PROTEGIDAS ====================
+Route::middleware(['auth', 'verified'])->group(function () {
 
     // LIVROS
     Route::get('/livros', [RouteController::class, 'livrosIndex'])->name('livros.index');
@@ -39,6 +45,15 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/livros/{id}/edit', [RouteController::class, 'livrosEdit'])->name('livros.edit');
     Route::put('/livros/{id}', [RouteController::class, 'livrosUpdate'])->name('livros.update');
     Route::delete('/livros/{id}', [RouteController::class, 'livrosDestroy'])->name('livros.destroy');
+
+    // EXPORTAÇÃO EXCEL - NOME NOVO PARA EVITAR CONFLITO
+    Route::get('/exportar-livros', function() {
+        try {
+            return Excel::download(new \App\Exports\LivrosExport, 'livros_' . date('Y-m-d_H-i-s') . '.xlsx');
+        } catch (\Exception $e) {
+            return "Erro ao exportar: " . $e->getMessage();
+        }
+    })->name('livros.export');
 
     // AUTORES
     Route::get('/autores', [RouteController::class, 'autoresIndex'])->name('autores.index');

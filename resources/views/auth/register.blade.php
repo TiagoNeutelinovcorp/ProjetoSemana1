@@ -4,6 +4,12 @@
             <div class="card-body">
                 <h2 class="card-title text-2xl mb-6 text-center mx-auto">Registar</h2>
 
+                @if(session('sucesso'))
+                    <div class="alert alert-success mb-4">
+                        {{ session('sucesso') }}
+                    </div>
+                @endif
+
                 <form method="POST" action="{{ route('register') }}">
                     @csrf
 
@@ -14,7 +20,7 @@
                         </label>
                         <input type="text" name="name" placeholder="Seu nome completo"
                                class="input input-bordered @error('name') input-error @enderror"
-                               value="{{ old('name') }}" required>
+                               value="{{ old('name') }}" required autofocus>
                         @error('name')
                         <span class="text-error text-sm mt-1">{{ $message }}</span>
                         @enderror

@@ -36,9 +36,8 @@
                         </div>
                     </div>
 
-                    {{-- Linha 2: Editora e Preço --}}
+                    {{--Editora--}}
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        {{-- Editora (DROPDOWN ÚNICO) --}}
                         <div class="form-control">
                             <label class="label">
                                 <span class="label-text font-medium">Editora</span>
@@ -70,7 +69,7 @@
                         </div>
                     </div>
 
-                    {{-- Autor (DROPDOWN ÚNICO - igual à editora) --}}
+                    {{-- Autor--}}
                     <div class="form-control mb-4">
                         <label class="label">
                             <span class="label-text font-medium">Autor</span>

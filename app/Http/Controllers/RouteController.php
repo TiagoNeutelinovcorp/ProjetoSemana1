@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Auth\Events\Registered;
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use App\Models\User;
 use App\Models\Livro;
 use App\Models\Autor;
@@ -47,6 +48,12 @@ class RouteController extends Controller
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
+
+            if (is_null(Auth::user()->email_verified_at)) {
+                return redirect()->route('verification.notice')
+                    ->with('mensagem', 'Por favor verifique o seu email antes de aceder.');
+            }
+
             return redirect()->intended('/livros');
         }
 
@@ -66,18 +73,31 @@ class RouteController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
+            'role' => 'required|in:cliente,bibliotecario',
+            'secret_code' => 'required_if:role,bibliotecario|nullable|string'
         ]);
+
+        if ($request->role === 'bibliotecario') {
+            $codigoCorreto = env('SECRET_CODE_BIBLIOTECARIO', 'biblioteca2025');
+            if ($request->secret_code !== $codigoCorreto) {
+                return back()->withErrors([
+                    'secret_code' => 'Código secreto inválido para bibliotecário.'
+                ])->withInput();
+            }
+        }
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'role' => $request->role,
         ]);
 
         event(new Registered($user));
         Auth::login($user);
 
-        return redirect('/livros')->with('sucesso', 'Registo realizado!');
+        return redirect()->route('verification.notice')
+            ->with('sucesso', 'Registo realizado! Por favor verifique o seu email.');
     }
 
     public function logout(Request $request)
@@ -88,18 +108,66 @@ class RouteController extends Controller
         return redirect('/');
     }
 
+    // ==================== VERIFICAÇÃO DE EMAIL ====================
+
+    public function verificationNotice()
+    {
+        return view('auth.verify-email');
+    }
+
+    public function verificationVerify(EmailVerificationRequest $request)
+    {
+        $request->fulfill();
+        return redirect('/livros')->with('sucesso', 'Email verificado com sucesso!');
+    }
+
+    public function verificationSend(Request $request)
+    {
+        $request->user()->sendEmailVerificationNotification();
+        return back()->with('sucesso', 'Link de verificação reenviado!');
+    }
+
     // ==================== LIVROS ====================
 
     public function livrosIndex(Request $request)
     {
-        $livros = Livro::with(['editora', 'autores'])->latest()->paginate(8);
+        $query = Livro::with(['editora', 'autores']);
+
+        // FILTRO POR PESQUISA (nome do livro ou ISBN)
+        if ($request->filled('pesquisa')) {
+            $pesquisa = $request->pesquisa;
+            $query->where(function($q) use ($pesquisa) {
+                $q->where('nome', 'like', "%{$pesquisa}%")
+                    ->orWhere('isbn', 'like', "%{$pesquisa}%");
+            });
+        }
+
+        // FILTRO POR AUTOR
+        if ($request->filled('autor')) {
+            $query->whereHas('autores', function($q) use ($request) {
+                $q->where('autores.id', $request->autor);
+            });
+        }
+
+        // FILTRO POR EDITORA
+        if ($request->filled('editora')) {
+            $query->where('editora_id', $request->editora);
+        }
+
+        // ORDENAÇÃO E PAGINAÇÃO
+        $livros = $query->latest()->paginate(8)->withQueryString();
+
+        // DADOS PARA OS SELECTS DOS FILTROS
         $autores = Autor::orderBy('nome')->get();
         $editoras = Editora::orderBy('nome')->get();
+
         return view('livros.livros', compact('livros', 'autores', 'editoras'));
     }
-
     public function livrosCreate()
     {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
         $editoras = Editora::orderBy('nome')->get();
         $autores = Autor::orderBy('nome')->get();
         return view('livros.create', compact('editoras', 'autores'));
@@ -107,6 +175,10 @@ class RouteController extends Controller
 
     public function livrosStore(Request $request)
     {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
+
         $request->validate([
             'isbn' => 'required|unique:livros,isbn',
             'nome' => 'required|string|max:255',
@@ -132,7 +204,6 @@ class RouteController extends Controller
         ]);
 
         $livro->autores()->attach($request->autor_id);
-
         return redirect()->route('livros.index')->with('sucesso', 'Livro adicionado!');
     }
 
@@ -144,14 +215,23 @@ class RouteController extends Controller
 
     public function livrosEdit($id)
     {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
+
         $livro = Livro::with('autores')->findOrFail($id);
         $editoras = Editora::orderBy('nome')->get();
         $autores = Autor::orderBy('nome')->get();
-        return view('livros.edit', compact('livro', 'editoras', 'autores'));
+        $autorSelecionado = $livro->autores->first()->id ?? null;
+        return view('livros.edit', compact('livro', 'editoras', 'autores', 'autorSelecionado'));
     }
 
     public function livrosUpdate(Request $request, $id)
     {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
+
         $livro = Livro::findOrFail($id);
 
         $request->validate([
@@ -180,12 +260,15 @@ class RouteController extends Controller
         ]);
 
         $livro->autores()->sync($request->autor_id);
-
         return redirect()->route('livros.index')->with('sucesso', 'Livro atualizado!');
     }
 
     public function livrosDestroy($id)
     {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
+
         $livro = Livro::findOrFail($id);
 
         if ($livro->imagem_capa) {
@@ -194,7 +277,6 @@ class RouteController extends Controller
 
         $livro->autores()->detach();
         $livro->delete();
-
         return redirect()->route('livros.index')->with('sucesso', 'Livro removido!');
     }
 
@@ -208,11 +290,18 @@ class RouteController extends Controller
 
     public function autoresCreate()
     {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
         return view('autores.create');
     }
 
     public function autoresStore(Request $request)
     {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
+
         $request->validate([
             'nome' => 'required|string|max:255',
             'foto' => 'nullable|image|max:2048'
@@ -239,12 +328,20 @@ class RouteController extends Controller
 
     public function autoresEdit($id)
     {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
+
         $autor = Autor::findOrFail($id);
         return view('autores.edit', compact('autor'));
     }
 
     public function autoresUpdate(Request $request, $id)
     {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
+
         $autor = Autor::findOrFail($id);
 
         $request->validate([
@@ -260,12 +357,15 @@ class RouteController extends Controller
         }
 
         $autor->update(['nome' => $request->nome]);
-
         return redirect()->route('autores.index')->with('sucesso', 'Autor atualizado!');
     }
 
     public function autoresDestroy($id)
     {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
+
         $autor = Autor::findOrFail($id);
 
         if ($autor->livros()->count() > 0) {
@@ -277,7 +377,6 @@ class RouteController extends Controller
         }
 
         $autor->delete();
-
         return redirect()->route('autores.index')->with('sucesso', 'Autor removido!');
     }
 
@@ -291,11 +390,18 @@ class RouteController extends Controller
 
     public function editorasCreate()
     {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
         return view('editoras.create');
     }
 
     public function editorasStore(Request $request)
     {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
+
         $request->validate([
             'nome' => 'required|string|max:255',
             'logotipo' => 'nullable|image|max:2048'
@@ -322,12 +428,20 @@ class RouteController extends Controller
 
     public function editorasEdit($id)
     {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
+
         $editora = Editora::findOrFail($id);
         return view('editoras.edit', compact('editora'));
     }
 
     public function editorasUpdate(Request $request, $id)
     {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
+
         $editora = Editora::findOrFail($id);
 
         $request->validate([
@@ -343,12 +457,15 @@ class RouteController extends Controller
         }
 
         $editora->update(['nome' => $request->nome]);
-
         return redirect()->route('editoras.index')->with('sucesso', 'Editora atualizada!');
     }
 
     public function editorasDestroy($id)
     {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
+
         $editora = Editora::findOrFail($id);
 
         if ($editora->livros()->count() > 0) {
@@ -360,7 +477,6 @@ class RouteController extends Controller
         }
 
         $editora->delete();
-
         return redirect()->route('editoras.index')->with('sucesso', 'Editora removida!');
     }
 }
