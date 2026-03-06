@@ -73,7 +73,7 @@ return [
     |
     */
 
-    'home' => '/livros',
+    'home' => '/dashboard',
 
     /*
     |--------------------------------------------------------------------------
@@ -150,10 +150,8 @@ return [
         Features::updateProfileInformation(),
         Features::updatePasswords(),
         Features::twoFactorAuthentication([
-            'confirm' => true,
-            'confirmPassword' => true,
-            // 'window' => 0,
+            'confirm' => false,  // MUDAR DE true PARA false
+            'confirmPassword' => false,  // MUDAR DE true PARA false
         ]),
     ],
-
 ];

@@ -6,12 +6,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Auth\Events\Registered;
-use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use App\Models\User;
 use App\Models\Livro;
 use App\Models\Autor;
 use App\Models\Editora;
+use PragmaRX\Google2FAQRCode\Google2FA;
+
+
 
 class RouteController extends Controller
 {
@@ -31,12 +32,12 @@ class RouteController extends Controller
 
     public function loginCliente()
     {
-        return view('auth.login', ['tipo' => 'cliente']);
+        return view('auth.login-form', ['tipo' => 'cliente']);
     }
 
     public function loginBibliotecario()
     {
-        return view('auth.login', ['tipo' => 'bibliotecario']);
+        return view('auth.login-form', ['tipo' => 'bibliotecario']);
     }
 
     public function loginStore(Request $request)
@@ -46,20 +47,24 @@ class RouteController extends Controller
             'password' => 'required',
         ]);
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
-            $request->session()->regenerate();
+        $user = User::where('email', $request->email)->first();
 
-            if (is_null(Auth::user()->email_verified_at)) {
-                return redirect()->route('verification.notice')
-                    ->with('mensagem', 'Por favor verifique o seu email antes de aceder.');
-            }
-
-            return redirect()->intended('/livros');
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return back()->withErrors([
+                'email' => 'As credenciais não correspondem.',
+            ])->onlyInput('email');
         }
 
-        return back()->withErrors([
-            'email' => 'As credenciais não correspondem.',
-        ])->onlyInput('email');
+        // Se o utilizador tem 2FA ativo
+        if ($user->two_factor_secret) {
+            session(['2fa:user:id' => $user->id]);
+            return redirect()->route('two-factor.challenge');
+        }
+
+        Auth::login($user, $request->boolean('remember'));
+        $request->session()->regenerate();
+
+        return redirect()->intended('/livros');
     }
 
     public function registerForm()
@@ -73,31 +78,28 @@ class RouteController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
-            'role' => 'required|in:cliente,bibliotecario',
-            'secret_code' => 'required_if:role,bibliotecario|nullable|string'
         ]);
 
-        if ($request->role === 'bibliotecario') {
-            $codigoCorreto = env('SECRET_CODE_BIBLIOTECARIO', 'biblioteca2025');
-            if ($request->secret_code !== $codigoCorreto) {
-                return back()->withErrors([
-                    'secret_code' => 'Código secreto inválido para bibliotecário.'
-                ])->withInput();
-            }
-        }
+        // Verificar se é o primeiro utilizador (ID=1 será bibliotecário)
+        $isFirstUser = User::count() === 0;
+
+        $role = $isFirstUser ? 'bibliotecario' : 'cliente';
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => $request->role,
+            'role' => $role,
         ]);
 
-        event(new Registered($user));
         Auth::login($user);
 
-        return redirect()->route('verification.notice')
-            ->with('sucesso', 'Registo realizado! Por favor verifique o seu email.');
+        // Se for o primeiro utilizador, mostrar mensagem especial
+        if ($isFirstUser) {
+            return redirect('/livros')->with('sucesso', 'Conta de administrador criada com sucesso!');
+        }
+
+        return redirect('/livros')->with('sucesso', 'Registo realizado com sucesso!');
     }
 
     public function logout(Request $request)
@@ -105,26 +107,160 @@ class RouteController extends Controller
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        return redirect('/');
+        return redirect()->route('login');
     }
 
-    // ==================== VERIFICAÇÃO DE EMAIL ====================
+    // ==================== PERFIL DO UTILIZADOR ====================
 
-    public function verificationNotice()
+    public function profileIndex()
     {
-        return view('auth.verify-email');
+        $user = Auth::user();
+        return view('profile.index', compact('user'));
     }
 
-    public function verificationVerify(EmailVerificationRequest $request)
+    public function profilePassword(Request $request)
     {
-        $request->fulfill();
-        return redirect('/livros')->with('sucesso', 'Email verificado com sucesso!');
+        $request->validate([
+            'current_password' => 'required|current_password',
+            'new_password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = Auth::user();
+        $user->update([
+            'password' => Hash::make($request->new_password)
+        ]);
+
+        return back()->with('sucesso', 'Password atualizada com sucesso!');
     }
 
-    public function verificationSend(Request $request)
+    // ==================== 2FA (SEM CÓDIGOS DE RECUPERAÇÃO) ====================
+
+    public function twoFactorEnable(Request $request)
     {
-        $request->user()->sendEmailVerificationNotification();
-        return back()->with('sucesso', 'Link de verificação reenviado!');
+        $user = $request->user();
+
+        if ($user->two_factor_secret) {
+            return back()->with('erro', '2FA já está ativo.');
+        }
+
+        // Gerar chave secreta manualmente
+        $google2fa = new Google2FA();
+        $secret = $google2fa->generateSecretKey();
+
+        $user->forceFill([
+            'two_factor_secret' => encrypt($secret),
+        ])->save();
+
+        return redirect()->route('profile.index')->with('sucesso', '2FA ativado com sucesso!');
+    }
+
+    public function twoFactorDisable(Request $request)
+    {
+        $user = $request->user();
+
+        $user->forceFill([
+            'two_factor_secret' => null,
+        ])->save();
+
+        return redirect()->route('profile.index')->with('sucesso', '2FA desativado com sucesso!');
+    }
+
+    public function twoFactorVerify(Request $request)
+    {
+        $request->validate([
+            'code' => 'required|string',
+        ]);
+
+        $userId = session('2fa:user:id');
+
+        if (!$userId) {
+            return redirect()->route('login')->withErrors([
+                'email' => 'Sessão expirada. Faça login novamente.',
+            ]);
+        }
+
+        $user = User::find($userId);
+
+        if (!$user || !$user->two_factor_secret) {
+            return redirect()->route('login')->withErrors([
+                'email' => 'Utilizador inválido.',
+            ]);
+        }
+
+        $google2fa = new Google2FA();
+        $valid = $google2fa->verifyKey(decrypt($user->two_factor_secret), $request->code);
+
+        if (!$valid) {
+            return back()->withErrors([
+                'code' => 'Código 2FA inválido.',
+            ]);
+        }
+
+        Auth::login($user, true);
+        session()->forget('2fa:user:id');
+        $request->session()->regenerate();
+
+        return redirect()->intended('/livros');
+    }
+
+    // ==================== GESTÃO DE UTILIZADORES ====================
+
+    public function usersIndex(Request $request)
+    {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
+
+        $query = User::query();
+
+        if ($request->filled('pesquisa')) {
+            $pesquisa = $request->pesquisa;
+            $query->where(function($q) use ($pesquisa) {
+                $q->where('name', 'like', "%{$pesquisa}%")
+                    ->orWhere('email', 'like', "%{$pesquisa}%");
+            });
+        }
+
+        if ($request->filled('role')) {
+            $query->where('role', $request->role);
+        }
+
+
+        $users = $query->orderBy('id')->paginate(10)->withQueryString();
+
+        return view('profile.users.index', compact('users'));
+    }
+
+    public function usersUpdateRole(Request $request, User $user)
+    {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
+
+        $request->validate([
+            'role' => 'required|in:cliente,bibliotecario'
+        ]);
+
+        $user->update([
+            'role' => $request->role
+        ]);
+
+        return back()->with('sucesso', 'Role atualizado com sucesso!');
+    }
+
+    public function usersDestroy(User $user)
+    {
+        if (!auth()->user()->isBibliotecario()) {
+            abort(403, 'Acesso negado');
+        }
+
+        if ($user->id === auth()->id()) {
+            return back()->with('erro', 'Não podes apagar a tua própria conta!');
+        }
+
+        $user->delete();
+
+        return back()->with('sucesso', 'Utilizador apagado com sucesso!');
     }
 
     // ==================== LIVROS ====================
@@ -133,7 +269,6 @@ class RouteController extends Controller
     {
         $query = Livro::with(['editora', 'autores']);
 
-        // FILTRO POR PESQUISA (nome do livro ou ISBN)
         if ($request->filled('pesquisa')) {
             $pesquisa = $request->pesquisa;
             $query->where(function($q) use ($pesquisa) {
@@ -142,32 +277,29 @@ class RouteController extends Controller
             });
         }
 
-        // FILTRO POR AUTOR
         if ($request->filled('autor')) {
             $query->whereHas('autores', function($q) use ($request) {
                 $q->where('autores.id', $request->autor);
             });
         }
 
-        // FILTRO POR EDITORA
         if ($request->filled('editora')) {
             $query->where('editora_id', $request->editora);
         }
 
-        // ORDENAÇÃO E PAGINAÇÃO
         $livros = $query->latest()->paginate(8)->withQueryString();
-
-        // DADOS PARA OS SELECTS DOS FILTROS
         $autores = Autor::orderBy('nome')->get();
         $editoras = Editora::orderBy('nome')->get();
 
         return view('livros.livros', compact('livros', 'autores', 'editoras'));
     }
+
     public function livrosCreate()
     {
         if (!auth()->user()->isBibliotecario()) {
             abort(403, 'Acesso negado');
         }
+
         $editoras = Editora::orderBy('nome')->get();
         $autores = Autor::orderBy('nome')->get();
         return view('livros.create', compact('editoras', 'autores'));
@@ -478,5 +610,43 @@ class RouteController extends Controller
 
         $editora->delete();
         return redirect()->route('editoras.index')->with('sucesso', 'Editora removida!');
+    }
+
+
+// ==================== FOTO DE PERFIL ====================
+
+    public function profileUpdatePhoto(Request $request)
+    {
+        $request->validate([
+            'profile_photo' => 'required|image|max:2048', // max 2MB
+        ]);
+
+        $user = Auth::user();
+
+        // Apagar foto antiga se existir
+        if ($user->profile_photo) {
+            Storage::disk('public')->delete($user->profile_photo);
+        }
+
+        // Guardar nova foto
+        $path = $request->file('profile_photo')->store('profile-photos', 'public');
+
+        $user->update([
+            'profile_photo' => $path
+        ]);
+
+        return back()->with('sucesso', 'Foto de perfil atualizada com sucesso!');
+    }
+
+    public function profileDeletePhoto()
+    {
+        $user = Auth::user();
+
+        if ($user->profile_photo) {
+            Storage::disk('public')->delete($user->profile_photo);
+            $user->update(['profile_photo' => null]);
+        }
+
+        return back()->with('sucesso', 'Foto de perfil removida com sucesso!');
     }
 }

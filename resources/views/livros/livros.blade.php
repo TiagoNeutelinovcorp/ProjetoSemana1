@@ -5,7 +5,7 @@
             <h1 class="text-3xl font-bold">Livros</h1>
             <div class="flex gap-2">
                 @auth
-                    @if(auth()->user()->isBibliotecario())
+                    @if(auth()->user()->isBibliotecario() && auth()->user()->two_factor_secret)
                         <a href="{{ route('livros.export') }}" class="btn btn-success">
                             <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M16 8l-4-4m0 0L8 8m4-4v12" />
@@ -89,9 +89,9 @@
         {{-- Grid de livros --}}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             @forelse($livros as $livro)
-                <div class="card card-side bg-base-100 shadow-lg hover:shadow-xl transition-all duration-300 h-40">
+                <div class="card card-side bg-base-100 shadow-lg hover:shadow-xl transition-all duration-300 h-44">
                     {{-- Imagem --}}
-                    <figure class="w-24 h-40 flex-shrink-0">
+                    <figure class="w-24 h-44 flex-shrink-0">
                         <img src="{{ $livro->imagem_capa_url }}" alt="{{ $livro->nome }}"
                              class="w-full h-full object-cover">
                     </figure>
@@ -122,16 +122,53 @@
                                 <span class="text-base-content/70">€:</span>
                                 <span class="font-bold text-white">{{ $livro->preco_formatado }}</span>
                             </p>
+
+                            {{-- Indicador de disponibilidade --}}
+                            <p class="flex items-center gap-1 mt-1">
+                                <span class="text-base-content/70">Status:</span>
+                                @if($livro->isDisponivel())
+                                    <span class="badge badge-success badge-xs">Disponível</span>
+                                @else
+                                    <span class="badge badge-error badge-xs">Indisponível</span>
+                                @endif
+                            </p>
                         </div>
 
                         {{-- Botões de ação --}}
                         <div class="card-actions justify-end mt-2">
                             <a href="{{ route('livros.show', $livro) }}" class="btn btn-xs btn-info">Ver</a>
-                            @if(auth()->user()?->isBibliotecario())
-                                <a href="{{ route('livros.edit', $livro) }}" class="btn btn-xs btn-warning">Editar</a>
-                                {{-- Botão para abrir modal de delete --}}
-                                <label for="delete-modal-{{ $livro->id }}" class="btn btn-xs btn-error">Apagar</label>
-                            @endif
+
+                            {{-- Botão de requisição com diferentes estados --}}
+                            @auth
+                                @if(auth()->user()->two_factor_secret)
+                                    {{-- Utilizador com 2FA - pode requisitar --}}
+                                    @if($livro->isDisponivel())
+                                        <a href="{{ route('requisicoes.create', $livro) }}" class="btn btn-xs btn-success">
+                                            Requisitar
+                                        </a>
+                                    @else
+                                        <span class="badge badge-error badge-sm">Indisponível</span>
+                                    @endif
+                                @else
+                                    {{-- Utilizador sem 2FA - mostra modal de aviso --}}
+                                    @if($livro->isDisponivel())
+                                        <button class="btn btn-xs btn-success" onclick="twofaWarningModal.showModal()">
+                                            Requisitar
+                                        </button>
+                                    @else
+                                        <span class="badge badge-error badge-sm">Indisponível</span>
+                                    @endif
+                                @endif
+                            @else
+                                {{-- Visitante não autenticado - mostra modal de login --}}
+                                @if($livro->isDisponivel())
+                                    <button class="btn btn-xs btn-success" onclick="loginRequisitarModal.showModal()">
+                                        Requisitar
+                                    </button>
+                                @else
+                                    <span class="badge badge-error badge-sm">Indisponível</span>
+                                @endif
+                            @endauth
                         </div>
                     </div>
                 </div>
@@ -163,7 +200,7 @@
                     </svg>
                     <p class="text-base-content/60 text-xl mb-4">Nenhum livro encontrado</p>
                     @auth
-                        @if(auth()->user()->isBibliotecario())
+                        @if(auth()->user()->isBibliotecario() && auth()->user()->two_factor_secret)
                             <a href="{{ route('livros.create') }}" class="btn btn-info">Adicionar o primeiro livro</a>
                         @endif
                     @endauth
@@ -199,4 +236,55 @@
             </div>
         @endif
     </div>
+
+    {{-- Modal de aviso de 2FA para Requisição (utilizador logado sem 2FA) --}}
+    <dialog id="twofaWarningModal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box">
+            <h3 class="text-lg font-bold text-warning">Autenticação de Dois Fatores Necessária</h3>
+
+            <div class="py-4">
+                <p class="mb-4">Para poderes requisitar livros, precisas de ativar a Autenticação de Dois Fatores (2FA) na tua conta.</p>
+                <p class="text-sm text-base-content/70">A 2FA adiciona uma camada extra de segurança à tua conta, protegendo os teus dados e requisições.</p>
+            </div>
+
+            <div class="modal-action">
+                <form method="dialog">
+                    <button class="btn btn-ghost">Cancelar</button>
+                </form>
+                <a href="{{ route('profile.index') }}" class="btn btn-warning">
+                    Ir para Perfil e Ativar 2FA
+                </a>
+            </div>
+        </div>
+    </dialog>
+
+    {{-- Modal de aviso para Login (visitante não autenticado) --}}
+    <dialog id="loginRequisitarModal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box">
+            <h3 class="text-lg font-bold text-info">Acesso Exclusivo para Utilizadores Registados</h3>
+
+            <div class="py-4">
+                <p class="mb-4">Para poderes requisitar livros, precisas de ter uma conta e ativar a Autenticação de Dois Fatores (2FA).</p>
+                <div class="bg-base-200 p-4 rounded-box space-y-2">
+                    <p class="font-medium">Passos para acederes a esta funcionalidade:</p>
+                    <ol class="list-decimal list-inside text-sm space-y-1">
+                        <li>Cria uma conta (gratuita)</li>
+                        <li>Faz login na tua conta</li>
+                        <li>Ativa o 2FA no teu perfil</li>
+                        <li>Volta e requisita o teu livro!</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="modal-action">
+                <form method="dialog">
+                    <button class="btn btn-ghost">Agora não</button>
+                </form>
+                <div class="space-x-2">
+                    <a href="{{ route('login') }}" class="btn btn-primary">Login</a>
+                    <a href="{{ route('register') }}" class="btn btn-secondary">Registar</a>
+                </div>
+            </div>
+        </div>
+    </dialog>
 </x-layouts.layout>

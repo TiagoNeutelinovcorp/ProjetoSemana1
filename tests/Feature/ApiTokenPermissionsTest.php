@@ -3,6 +3,8 @@
 use App\Models\User;
 use Illuminate\Support\Str;
 use Laravel\Jetstream\Features;
+use Laravel\Jetstream\Http\Livewire\ApiTokenManager;
+use Livewire\Livewire;
 
 test('api token permissions can be updated', function () {
     if (Features::hasTeamFeatures()) {
@@ -17,13 +19,15 @@ test('api token permissions can be updated', function () {
         'abilities' => ['create', 'read'],
     ]);
 
-    $this->put('/user/api-tokens/'.$token->id, [
-        'name' => $token->name,
-        'permissions' => [
-            'delete',
-            'missing-permission',
-        ],
-    ]);
+    Livewire::test(ApiTokenManager::class)
+        ->set(['managingPermissionsFor' => $token])
+        ->set(['updateApiTokenForm' => [
+            'permissions' => [
+                'delete',
+                'missing-permission',
+            ],
+        ]])
+        ->call('updateApiToken');
 
     expect($user->fresh()->tokens->first())
         ->can('delete')->toBeTrue()

@@ -3,6 +3,8 @@
 use App\Models\User;
 use Illuminate\Support\Str;
 use Laravel\Jetstream\Features;
+use Laravel\Jetstream\Http\Livewire\ApiTokenManager;
+use Livewire\Livewire;
 
 test('api tokens can be deleted', function () {
     if (Features::hasTeamFeatures()) {
@@ -17,7 +19,9 @@ test('api tokens can be deleted', function () {
         'abilities' => ['create', 'read'],
     ]);
 
-    $this->delete('/user/api-tokens/'.$token->id);
+    Livewire::test(ApiTokenManager::class)
+        ->set(['apiTokenIdBeingDeleted' => $token->id])
+        ->call('deleteApiToken');
 
     expect($user->fresh()->tokens)->toHaveCount(0);
 })->skip(function () {

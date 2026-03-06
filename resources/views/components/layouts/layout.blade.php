@@ -1,7 +1,5 @@
-@props(['title' => 'Biblioteca'])
-
-    <!doctype html>
-<html lang="pt" data-theme="lofi">
+<!doctype html>
+<html lang="pt" data-theme="dim">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">

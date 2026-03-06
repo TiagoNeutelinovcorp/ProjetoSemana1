@@ -1,26 +1,22 @@
 <x-layouts.layout title="Verificar Email">
-    <div class="max-w-md mx-auto mt-10">
+    <div class="max-w-md mx-auto">
         <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
                 <h2 class="card-title text-2xl mb-6 text-center mx-auto">Verifique o seu email</h2>
 
                 @if(session('sucesso'))
-                    <div class="alert alert-success mb-4">
-                        {{ session('sucesso') }}
-                    </div>
+                    <div class="alert alert-success mb-4">{{ session('sucesso') }}</div>
                 @endif
 
                 @if(session('mensagem'))
-                    <div class="alert alert-info mb-4">
-                        {{ session('mensagem') }}
-                    </div>
+                    <div class="alert alert-info mb-4">{{ session('mensagem') }}</div>
                 @endif
 
-                <p class="mb-4 text-base-content/70">
-                    Enviámos um link de verificação para <strong>{{ Auth::user()->email }}</strong>
+                <p class="mb-4">
+                    Enviámos um link de verificação para <strong>{{ auth()->user()->email }}</strong>
                 </p>
 
-                <p class="mb-4 text-sm text-base-content/60">
+                <p class="mb-4 text-sm text-base-content/70">
                     Clique no link do email para ativar a sua conta.
                 </p>
 
