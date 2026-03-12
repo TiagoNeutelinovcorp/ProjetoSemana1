@@ -14,7 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
             'verified.email' => \App\Http\Middleware\EnsureEmailIsVerified::class,
-            'two-factor' => \App\Http\Middleware\TwoFactorEnabled::class, // 👈 ADICIONA ESTA LINHA
+            'two-factor' => \App\Http\Middleware\TwoFactorEnabled::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

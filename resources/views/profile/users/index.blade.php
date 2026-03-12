@@ -15,7 +15,6 @@
             <div class="alert alert-error mb-6">{{ session('erro') }}</div>
         @endif
 
-        {{-- Filtros --}}
         <div class="bg-base-200 p-4 rounded-box mb-6">
             <form method="GET" class="flex flex-wrap gap-4 items-end">
                 <div class="form-control flex-1">
@@ -47,7 +46,6 @@
             </form>
         </div>
 
-        {{-- Tabela de Utilizadores --}}
         <div class="bg-base-100 rounded-box shadow-xl overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="table table-zebra">
@@ -89,7 +87,6 @@
                             </td>
                             <td class="text-center">
                                 <div class="flex justify-center gap-1">
-                                    {{-- BOTÃO DE HISTÓRICO --}}
                                     <a href="{{ route('requisicoes.historico', $user) }}"
                                        class="btn btn-xs btn-info">
                                         <svg class="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -99,17 +96,14 @@
                                     </a>
 
                                     @if($user->id !== auth()->id())
-                                        {{-- Botão que abre o modal de delete --}}
                                         <label for="delete-user-modal-{{ $user->id }}" class="btn btn-xs btn-error">
                                             Apagar
                                         </label>
 
-                                        {{-- Modal de confirmação DaisyUI --}}
                                         <input type="checkbox" id="delete-user-modal-{{ $user->id }}" class="modal-toggle" />
                                         <div class="modal" role="dialog">
                                             <div class="modal-box">
                                                 <h3 class="text-lg font-bold text-error">Confirmar Eliminação</h3>
-
                                                 <div class="py-4">
                                                     <p>Tens a certeza que desejas apagar o utilizador
                                                         <span class="font-bold">"{{ $user->name }}"</span>?</p>
@@ -120,10 +114,9 @@
                                                         ID: {{ $user->id }}
                                                     </p>
                                                     <p class="text-sm text-error mt-4">
-                                                        Esta ação não pode ser desfeita. Todas as requisições deste utilizador serão também apagadas.
+                                                        Todas as requisições deste utilizador serão também apagadas.
                                                     </p>
                                                 </div>
-
                                                 <div class="modal-action">
                                                     <label for="delete-user-modal-{{ $user->id }}" class="btn btn-ghost">Cancelar</label>
                                                     <form action="{{ route('users.destroy', $user) }}" method="POST" class="inline">
@@ -158,10 +151,11 @@
                 </table>
             </div>
 
-            {{-- Rodapé da tabela com contagem e paginação --}}
             <div class="bg-base-200 px-4 py-3 flex flex-col items-center gap-3 text-sm">
+                <span class="text-base-content/70">
+                    Mostrando {{ $users->firstItem() ?? 0 }} - {{ $users->lastItem() ?? 0 }} de {{ $users->total() }} utilizadores
+                </span>
 
-                {{-- Paginação --}}
                 @if($users->hasPages())
                     <div class="join">
                         <a href="{{ $users->previousPageUrl() }}"

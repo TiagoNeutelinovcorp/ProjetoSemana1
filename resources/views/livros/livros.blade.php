@@ -1,6 +1,5 @@
 <x-layouts.layout title="Livros">
     <div class="max-w-7xl mx-auto">
-        {{-- Cabeçalho com título e botões --}}
         <div class="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
             <h1 class="text-3xl font-bold">Livros</h1>
             <div class="flex gap-2">
@@ -12,7 +11,7 @@
                             </svg>
                             Exportar Excel
                         </a>
-                        <a href="{{ route('livros.create') }}" class="btn btn-info">
+                        <a href="{{ route('criar.livro') }}" class="btn btn-info">
                             <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                             </svg>
@@ -23,10 +22,8 @@
             </div>
         </div>
 
-        {{-- Filtros --}}
         <div class="bg-base-200 p-6 rounded-box mb-8 shadow-md">
             <form method="GET" action="{{ route('livros.index') }}" class="flex flex-wrap gap-4 items-end">
-                {{-- Pesquisa --}}
                 <div class="form-control flex-1 min-w-[250px]">
                     <label class="label">
                         <span class="label-text font-medium">Pesquisar</span>
@@ -36,7 +33,6 @@
                            class="input input-bordered w-full" />
                 </div>
 
-                {{-- Filtro por Autor --}}
                 <div class="form-control w-44">
                     <label class="label">
                         <span class="label-text font-medium">Autor</span>
@@ -51,7 +47,6 @@
                     </select>
                 </div>
 
-                {{-- Filtro por Editora --}}
                 <div class="form-control w-44">
                     <label class="label">
                         <span class="label-text font-medium">Editora</span>
@@ -66,7 +61,6 @@
                     </select>
                 </div>
 
-                {{-- Botões de ação --}}
                 <div class="flex gap-2">
                     <button type="submit" class="btn btn-info">Filtrar</button>
                     @if(request()->anyFilled(['pesquisa', 'autor', 'editora']))
@@ -76,7 +70,6 @@
             </form>
         </div>
 
-        {{-- Mensagem de sucesso --}}
         @if(session('sucesso'))
             <div class="alert alert-success mb-6 shadow-lg">
                 <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
@@ -86,32 +79,31 @@
             </div>
         @endif
 
-        {{-- Grid de livros --}}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             @forelse($livros as $livro)
-                <div class="card card-side bg-base-100 shadow-lg hover:shadow-xl transition-all duration-300 h-44">
-                    {{-- Imagem --}}
-                    <figure class="w-24 h-44 flex-shrink-0">
+                <div class="card card-side bg-base-100 shadow-lg hover:shadow-xl transition-all duration-300 h-auto min-h-[160px]">
+                    <figure class="w-24 h-auto min-h-[160px] flex-shrink-0 bg-base-200">
                         <img src="{{ $livro->imagem_capa_url }}" alt="{{ $livro->nome }}"
                              class="w-full h-full object-cover">
                     </figure>
 
-                    {{-- Conteúdo --}}
-                    <div class="card-body p-3">
-                        <h2 class="card-title text-base font-bold line-clamp-2">{{ $livro->nome }}</h2>
+                    <div class="card-body p-3 overflow-hidden">
+                        <h2 class="card-title text-sm font-bold line-clamp-2 leading-tight">
+                            {{ $livro->nome }}
+                        </h2>
 
-                        <div class="text-xs space-y-1 mt-1">
-                            <p class="flex items-center gap-1">
-                                <span class="text-base-content/70">Ed:</span>
-                                <span class="font-medium truncate">{{ $livro->editora->nome ?? 'N/A' }}</span>
+                        <div class="text-xs space-y-0.5 mt-1">
+                            <p class="flex items-start gap-1">
+                                <span class="font-bold w-5 flex-shrink-0 text-base-content/70">Ed:</span>
+                                <span class="line-clamp-1 break-words">{{ $livro->editora->nome ?? 'N/A' }}</span>
                             </p>
-                            <p class="flex items-center gap-1">
-                                <span class="text-base-content/70">Au:</span>
-                                <span class="font-medium truncate">
+                            <p class="flex items-start gap-1">
+                                <span class="font-bold w-5 flex-shrink-0 text-base-content/70">Au:</span>
+                                <span class="line-clamp-1 break-words">
                                     @if($livro->autores->count() > 0)
                                         {{ $livro->autores->first()->nome }}
                                         @if($livro->autores->count() > 1)
-                                            <span class="badge badge-xs">+{{ $livro->autores->count() - 1 }}</span>
+                                            <span class="badge badge-xs ml-1">+{{ $livro->autores->count() - 1 }}</span>
                                         @endif
                                     @else
                                         N/A
@@ -119,13 +111,11 @@
                                 </span>
                             </p>
                             <p class="flex items-center gap-1">
-                                <span class="text-base-content/70">€:</span>
-                                <span class="font-bold text-white">{{ $livro->preco_formatado }}</span>
+                                <span class="font-bold w-5 flex-shrink-0 text-base-content/70">€:</span>
+                                <span class="font-semibold">{{ $livro->preco_formatado }}</span>
                             </p>
-
-                            {{-- Indicador de disponibilidade --}}
                             <p class="flex items-center gap-1 mt-1">
-                                <span class="text-base-content/70">Status:</span>
+                                <span class="font-bold w-5 flex-shrink-0 text-base-content/70">St:</span>
                                 @if($livro->isDisponivel())
                                     <span class="badge badge-success badge-xs">Disponível</span>
                                 @else
@@ -134,46 +124,34 @@
                             </p>
                         </div>
 
-                        {{-- Botões de ação --}}
-                        <div class="card-actions justify-end mt-2">
+                        <div class="card-actions justify-end mt-2 pt-1 border-t border-base-200">
                             <a href="{{ route('livros.show', $livro) }}" class="btn btn-xs btn-info">Ver</a>
 
-                            {{-- Botão de requisição com diferentes estados --}}
                             @auth
                                 @if(auth()->user()->two_factor_secret)
-                                    {{-- Utilizador com 2FA - pode requisitar --}}
                                     @if($livro->isDisponivel())
                                         <a href="{{ route('requisicoes.create', $livro) }}" class="btn btn-xs btn-success">
                                             Requisitar
                                         </a>
-                                    @else
-                                        <span class="badge badge-error badge-sm">Indisponível</span>
                                     @endif
                                 @else
-                                    {{-- Utilizador sem 2FA - mostra modal de aviso --}}
                                     @if($livro->isDisponivel())
                                         <button class="btn btn-xs btn-success" onclick="twofaWarningModal.showModal()">
                                             Requisitar
                                         </button>
-                                    @else
-                                        <span class="badge badge-error badge-sm">Indisponível</span>
                                     @endif
                                 @endif
                             @else
-                                {{-- Visitante não autenticado - mostra modal de login --}}
                                 @if($livro->isDisponivel())
                                     <button class="btn btn-xs btn-success" onclick="loginRequisitarModal.showModal()">
                                         Requisitar
                                     </button>
-                                @else
-                                    <span class="badge badge-error badge-sm">Indisponível</span>
                                 @endif
                             @endauth
                         </div>
                     </div>
                 </div>
 
-                {{-- Modal de confirmação de exclusão --}}
                 <input type="checkbox" id="delete-modal-{{ $livro->id }}" class="modal-toggle" />
                 <div class="modal" role="dialog">
                     <div class="modal-box">
@@ -208,25 +186,21 @@
             @endforelse
         </div>
 
-        {{-- Paginação --}}
         @if($livros->hasPages())
             <div class="mt-12 flex justify-center">
                 <div class="join">
-                    {{-- Anterior --}}
                     @if($livros->onFirstPage())
                         <button class="join-item btn btn-disabled">«</button>
                     @else
                         <a href="{{ $livros->previousPageUrl() }}" class="join-item btn">«</a>
                     @endif
 
-                    {{-- Números das páginas --}}
                     @foreach($livros->getUrlRange(1, $livros->lastPage()) as $page => $url)
                         <a href="{{ $url }}" class="join-item btn {{ $page == $livros->currentPage() ? 'btn-active' : '' }}">
                             {{ $page }}
                         </a>
                     @endforeach
 
-                    {{-- Próximo --}}
                     @if($livros->hasMorePages())
                         <a href="{{ $livros->nextPageUrl() }}" class="join-item btn">»</a>
                     @else
@@ -237,16 +211,13 @@
         @endif
     </div>
 
-    {{-- Modal de aviso de 2FA para Requisição (utilizador logado sem 2FA) --}}
     <dialog id="twofaWarningModal" class="modal modal-bottom sm:modal-middle">
         <div class="modal-box">
             <h3 class="text-lg font-bold text-warning">Autenticação de Dois Fatores Necessária</h3>
-
             <div class="py-4">
                 <p class="mb-4">Para poderes requisitar livros, precisas de ativar a Autenticação de Dois Fatores (2FA) na tua conta.</p>
                 <p class="text-sm text-base-content/70">A 2FA adiciona uma camada extra de segurança à tua conta, protegendo os teus dados e requisições.</p>
             </div>
-
             <div class="modal-action">
                 <form method="dialog">
                     <button class="btn btn-ghost">Cancelar</button>
@@ -258,11 +229,9 @@
         </div>
     </dialog>
 
-    {{-- Modal de aviso para Login (visitante não autenticado) --}}
     <dialog id="loginRequisitarModal" class="modal modal-bottom sm:modal-middle">
         <div class="modal-box">
             <h3 class="text-lg font-bold text-info">Acesso Exclusivo para Utilizadores Registados</h3>
-
             <div class="py-4">
                 <p class="mb-4">Para poderes requisitar livros, precisas de ter uma conta e ativar a Autenticação de Dois Fatores (2FA).</p>
                 <div class="bg-base-200 p-4 rounded-box space-y-2">
@@ -275,7 +244,6 @@
                     </ol>
                 </div>
             </div>
-
             <div class="modal-action">
                 <form method="dialog">
                     <button class="btn btn-ghost">Agora não</button>

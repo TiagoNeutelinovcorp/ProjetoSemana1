@@ -140,9 +140,41 @@
                 <h2 class="card-title text-2xl mb-4">Autenticação de Dois Fatores (2FA)</h2>
 
                 @if(auth()->user()->two_factor_secret)
+                    {{-- 2FA ATIVO --}}
                     <div class="alert alert-success mb-4">
                         <span>2FA está ativo na tua conta.</span>
                     </div>
+
+                    @php
+                        // Gerar QR Code SVG
+                        $qrCode = auth()->user()->twoFactorQrCodeSvg();
+                        $recoveryCodes = auth()->user()->recoveryCodes();
+                    @endphp
+
+                    @if($qrCode)
+                        <div class="bg-base-200 p-6 rounded-box text-center mb-4">
+                            <p class="font-medium mb-4">Escaneia este QR Code com o Google Authenticator</p>
+                            <div class="flex justify-center bg-white p-4 rounded-box">
+                                {!! $qrCode !!}
+                            </div>
+                        </div>
+                    @endif
+
+                    @if($recoveryCodes)
+                        <div class="bg-base-200 p-6 rounded-box mb-4">
+                            <p class="font-medium mb-2">Códigos de Recuperação</p>
+                            <p class="text-sm text-base-content/70 mb-4">
+                                Guarda estes códigos num local seguro. Eles permitem aceder à tua conta caso percas o acesso à app de autenticação.
+                            </p>
+                            <div class="grid grid-cols-2 gap-2">
+                                @foreach($recoveryCodes as $code)
+                                    <div class="bg-base-100 p-2 rounded font-mono text-xs text-center">
+                                        {{ $code }}
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
 
                     <div class="flex justify-end">
                         <form action="{{ route('two-factor.disable') }}" method="POST">
@@ -154,6 +186,7 @@
                         </form>
                     </div>
                 @else
+                    {{-- 2FA INATIVO --}}
                     <div class="alert alert-warning mb-4">
                         <span>2FA não está ativo. Ativa para maior segurança.</span>
                     </div>
@@ -168,13 +201,5 @@
             </div>
         </div>
 
-        {{-- GESTÃO DE UTILIZADORES (SÓ BIBLIOTECÁRIOS) --}}
-        @if(auth()->user()->isBibliotecario())
-            <div class="mt-8">
-                <a href="{{ route('users.index') }}" class="btn btn-info">
-                    Gerir Utilizadores
-                </a>
-            </div>
-        @endif
     </div>
 </x-layouts.layout>

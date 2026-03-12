@@ -56,7 +56,6 @@
                     </select>
                 </div>
 
-                {{-- Pesquisa por Cidadão --}}
                 <div class="form-control w-52">
                     <label class="label">
                         <span class="label-text text-xs">Cidadão</span>
@@ -75,7 +74,6 @@
                     </div>
                 </div>
 
-                {{-- Pesquisa por Livro --}}
                 <div class="form-control w-52">
                     <label class="label">
                         <span class="label-text text-xs">Livro</span>
@@ -198,27 +196,22 @@
                     <dialog id="devolucaoModal{{ $req->id }}" class="modal modal-bottom sm:modal-middle">
                         <div class="modal-box">
                             <h3 class="text-lg font-bold text-success">Confirmar Devolução</h3>
-
                             <div class="py-4">
                                 <p>Tens a certeza que desejas confirmar a devolução do livro
                                     <span class="font-bold">"{{ $req->livro->nome }}"</span>?</p>
-
                                 @if($req->isAtrasada())
                                     <div class="alert alert-warning mt-4">
                                         <span>Este livro está com {{ $req->calcularDiasAtraso() }} dias de atraso!</span>
                                     </div>
                                 @endif
-
                                 <p class="text-sm text-base-content/70 mt-4">
                                     Esta ação registará a data de devolução e encerrará a requisição.
                                 </p>
                             </div>
-
                             <div class="modal-action">
                                 <form method="dialog">
                                     <button class="btn btn-ghost">Cancelar</button>
                                 </form>
-
                                 <form action="{{ route('requisicoes.confirmar-devolucao', $req) }}" method="POST" class="inline">
                                     @csrf
                                     @method('PUT')
@@ -238,7 +231,6 @@
                     Mostrando {{ $requisicoes->firstItem() ?? 0 }} - {{ $requisicoes->lastItem() ?? 0 }} de {{ $requisicoes->total() }} resultados
                 </span>
 
-                {{-- Paginação centralizada --}}
                 @if($requisicoes->hasPages())
                     <div class="join">
                         <a href="{{ $requisicoes->previousPageUrl() }}"

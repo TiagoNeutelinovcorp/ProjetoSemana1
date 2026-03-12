@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b74e9a40dcd0e184aee363f867d723e3",
+    "content-hash": "bd01e79d72a21fe7f6d8b5dbc07f7494",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -4519,6 +4519,61 @@
                 }
             ],
             "time": "2025-07-22T04:55:15+00:00"
+        },
+        {
+            "name": "scriptotek/google-books",
+            "version": "v0.2.6",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/scriptotek/php-google-books.git",
+                "reference": "55b4b96b006fcd41997a85cd89fff5e6529bffa1"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/scriptotek/php-google-books/zipball/55b4b96b006fcd41997a85cd89fff5e6529bffa1",
+                "reference": "55b4b96b006fcd41997a85cd89fff5e6529bffa1",
+                "shasum": ""
+            },
+            "require": {
+                "guzzlehttp/guzzle": "^6.2|^7.0"
+            },
+            "require-dev": {
+                "mockery/mockery": ">=0.9.5 ",
+                "phpspec/phpspec": ">=2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "aliases": {
+                        "GoogleBooks": "Scriptotek\\GoogleBooks\\GoogleBooksFacade"
+                    },
+                    "providers": [
+                        "Scriptotek\\GoogleBooks\\GoogleBooksServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Scriptotek\\GoogleBooks\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "ISC"
+            ],
+            "authors": [
+                {
+                    "name": "Dan Michael O. Heggø",
+                    "email": "danmichaelo@gmail.com"
+                }
+            ],
+            "description": "Package for interacting with the Google Books API",
+            "homepage": "http://github.com/scriptotek/google-books",
+            "support": {
+                "issues": "https://github.com/scriptotek/php-google-books/issues",
+                "source": "https://github.com/scriptotek/php-google-books/tree/v0.2.6"
+            },
+            "time": "2024-03-16T10:55:07+00:00"
         },
         {
             "name": "symfony/clock",

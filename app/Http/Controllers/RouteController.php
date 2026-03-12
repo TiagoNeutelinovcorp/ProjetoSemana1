@@ -302,6 +302,7 @@ class RouteController extends Controller
 
         $editoras = Editora::orderBy('nome')->get();
         $autores = Autor::orderBy('nome')->get();
+
         return view('livros.create', compact('editoras', 'autores'));
     }
 

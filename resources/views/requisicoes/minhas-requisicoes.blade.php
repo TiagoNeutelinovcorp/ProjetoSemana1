@@ -131,7 +131,7 @@
 
                                     @if(in_array($req->status, ['ativo']))
                                         <button class="btn btn-xs btn-warning" onclick="devolucaoModal{{ $req->id }}.showModal()">
-                                            Solicitar
+                                            Devolver
                                         </button>
                                     @endif
                                 </div>
