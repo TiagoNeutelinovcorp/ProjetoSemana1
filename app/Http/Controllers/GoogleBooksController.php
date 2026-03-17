@@ -9,10 +9,9 @@ use App\Models\Livro;
 use App\Models\Autor;
 use App\Models\Editora;
 use App\Models\LivroSugestao;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use App\Notifications\NovaSugestaoLivro;
-use App\Models\User;
-use App\Notifications\SugestaoRejeitada;
 
 class GoogleBooksController extends Controller
 {
@@ -27,9 +26,6 @@ class GoogleBooksController extends Controller
     /**
      * Pesquisar livros na Google Books API
      */
-    /**
-     * Pesquisar livros na Google Books API
-     */
     public function search(Request $request)
     {
         $request->validate([
@@ -37,8 +33,8 @@ class GoogleBooksController extends Controller
         ]);
 
         $query = $request->input('query');
-        $page = $request->input('page', 1); // Página atual, padrão = 1
-        $maxResults = 10; // Resultados por página
+        $page = $request->input('page', 1);
+        $maxResults = 10;
         $startIndex = ($page - 1) * $maxResults;
 
         $apiKey = env('GOOGLE_BOOKS_API_KEY');
@@ -67,6 +63,24 @@ class GoogleBooksController extends Controller
 
             foreach ($booksData as $item) {
                 $volumeInfo = $item['volumeInfo'];
+                $saleInfo = $item['saleInfo'] ?? [];
+
+                // Extrair preço real (retailPrice)
+                $preco = 0;
+                $moeda = 'EUR';
+
+                if (isset($saleInfo['saleability']) && $saleInfo['saleability'] === 'FOR_SALE') {
+                    // Dar prioridade ao retailPrice (preço real)
+                    if (isset($saleInfo['retailPrice'])) {
+                        $preco = $saleInfo['retailPrice']['amount'] ?? 0;
+                        $moeda = $saleInfo['retailPrice']['currencyCode'] ?? 'EUR';
+                    }
+                    // Se não tiver retailPrice, usar listPrice
+                    elseif (isset($saleInfo['listPrice'])) {
+                        $preco = $saleInfo['listPrice']['amount'] ?? 0;
+                        $moeda = $saleInfo['listPrice']['currencyCode'] ?? 'EUR';
+                    }
+                }
 
                 $books[] = [
                     'google_books_id' => $item['id'],
@@ -80,10 +94,13 @@ class GoogleBooksController extends Controller
                     'capa_grande' => str_replace('zoom=1', 'zoom=2', $volumeInfo['imageLinks']['thumbnail'] ?? ''),
                     'paginas' => $volumeInfo['pageCount'] ?? null,
                     'data_publicacao' => $volumeInfo['publishedDate'] ?? null,
+                    'preco' => $preco,
+                    'moeda' => $moeda,
+                    'preco_disponivel' => $preco > 0,
                 ];
             }
 
-            return view('google-books.search-results', compact('books', 'query', 'page', 'totalPages', 'totalItems', 'maxResults'));
+            return view('google-books.search-results', compact('books', 'query', 'page', 'totalPages', 'totalItems'));
 
         } catch (\Exception $e) {
             \Log::error('Exceção ao chamar Google Books API: ' . $e->getMessage());
@@ -97,7 +114,6 @@ class GoogleBooksController extends Controller
      */
     public function import(Request $request)
     {
-        // Verificação manual de permissão
         if (!auth()->user()->isBibliotecario()) {
             abort(403, 'Acesso negado. Apenas bibliotecários podem importar livros diretamente.');
         }
@@ -156,10 +172,11 @@ class GoogleBooksController extends Controller
             'capa_grande' => $validated['capa_grande'],
             'paginas' => $validated['paginas'] ?? null,
             'data_publicacao' => $validated['data_publicacao'] ?? null,
+            'preco' => $validated['preco'] ?? 0,
             'status' => 'pendente',
         ]);
 
-    //NOTIFICAR TODOS OS ADMINISTRADORES
+        // Notificar todos os administradores
         try {
             $admins = User::where('role', 'bibliotecario')->get();
             foreach ($admins as $admin) {
@@ -168,12 +185,13 @@ class GoogleBooksController extends Controller
         } catch (\Exception $e) {
             \Log::error('Erro ao notificar admins sobre nova sugestão: ' . $e->getMessage());
         }
+
         return redirect()->route('livros.index')
             ->with('sucesso', 'Livro sugerido com sucesso! Aguarda aprovação de um administrador.');
     }
 
     /**
-     * Validar dados do livro (comum a import e sugerir)
+     * Validar dados do livro
      */
     private function validateLivro(Request $request)
     {
@@ -187,6 +205,7 @@ class GoogleBooksController extends Controller
             'capa_grande' => 'nullable|string',
             'paginas' => 'nullable|integer',
             'data_publicacao' => 'nullable|string',
+            'preco' => 'nullable|numeric|min:0',
         ]);
     }
 
@@ -226,20 +245,26 @@ class GoogleBooksController extends Controller
                 }
             }
 
-            // 4. Criar o Livro
+            // 4. Determinar o preço (usar preço da API ou 0 se não disponível)
+            $preco = $dados['preco'] ?? 0;
+            if ($preco === null || $preco < 0) {
+                $preco = 0;
+            }
+
+            // 5. Criar o Livro
             $livro = Livro::create([
                 'isbn' => $dados['isbn'],
                 'nome' => $dados['titulo'],
                 'bibliografia' => $dados['descricao'],
-                'preco' => 0,
+                'preco' => $preco,
                 'editora_id' => $editora->id,
                 'imagem_capa' => $imagemPath,
             ]);
 
-            // 5. Associar Autores
+            // 6. Associar Autores
             $livro->autores()->sync($autoresIds);
 
-            // 6. Se veio de uma sugestão, atualizar status
+            // 7. Se veio de uma sugestão, atualizar status
             if ($sugestaoId) {
                 $sugestao = LivroSugestao::find($sugestaoId);
                 if ($sugestao) {
@@ -265,18 +290,13 @@ class GoogleBooksController extends Controller
      */
     public function listarSugestoes()
     {
-        // Verificação manual de permissão
         if (!auth()->user()->isBibliotecario()) {
             abort(403, 'Acesso negado. Apenas bibliotecários podem ver sugestões.');
         }
 
         $sugestoes = LivroSugestao::with('user')
-            ->orderByRaw("CASE status
-            WHEN 'pendente' THEN 1
-            WHEN 'aprovado' THEN 2
-            WHEN 'rejeitado' THEN 3
-            ELSE 4 END")
-            ->latest() // ordena por created_at descendente dentro de cada grupo
+            ->orderByRaw("CASE status WHEN 'pendente' THEN 1 WHEN 'aprovado' THEN 2 WHEN 'rejeitado' THEN 3 ELSE 4 END")
+            ->latest()
             ->paginate(15);
 
         return view('google-books.sugestoes', compact('sugestoes'));
@@ -287,7 +307,6 @@ class GoogleBooksController extends Controller
      */
     public function aprovarSugestao(LivroSugestao $sugestao)
     {
-        // Verificação manual de permissão
         if (!auth()->user()->isBibliotecario()) {
             abort(403, 'Acesso negado. Apenas bibliotecários podem aprovar sugestões.');
         }
@@ -319,6 +338,7 @@ class GoogleBooksController extends Controller
             'capa_grande' => $sugestao->capa_grande,
             'paginas' => $sugestao->paginas,
             'data_publicacao' => $sugestao->data_publicacao,
+            'preco' => $sugestao->preco ?? 0,
         ];
 
         return $this->processarImportacao($dados, $sugestao->id);
@@ -329,7 +349,6 @@ class GoogleBooksController extends Controller
      */
     public function rejeitarSugestao(Request $request, LivroSugestao $sugestao)
     {
-        // Verificação manual de permissão
         if (!auth()->user()->isBibliotecario()) {
             abort(403, 'Acesso negado. Apenas bibliotecários podem rejeitar sugestões.');
         }
@@ -338,22 +357,12 @@ class GoogleBooksController extends Controller
             'motivo' => 'required|string|max:255',
         ]);
 
-        $motivo = $request->motivo;
-
-        // Atualizar a sugestão
         $sugestao->update([
             'status' => 'rejeitado',
-            'observacoes_admin' => $motivo,
+            'observacoes_admin' => $request->motivo,
         ]);
 
-
-        try {
-            $sugestao->user->notify(new SugestaoRejeitada($sugestao, $motivo));
-        } catch (\Exception $e) {
-            \Log::error('Erro ao notificar utilizador sobre sugestão rejeitada: ' . $e->getMessage());
-        }
-
-        return back()->with('sucesso', 'Sugestão rejeitada com sucesso. O utilizador foi notificado por email.');
+        return back()->with('sucesso', 'Sugestão rejeitada com sucesso.');
     }
 
     /**

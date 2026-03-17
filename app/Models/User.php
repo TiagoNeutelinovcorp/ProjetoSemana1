@@ -67,4 +67,19 @@ class User extends Authenticatable
     {
         return $this->requisicoesAtivas()->count() < 3;
     }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function alertasDisponibilidade()
+    {
+        return $this->hasMany(AlertaDisponibilidade::class);
+    }
+
+    public function alertasPendentes()
+    {
+        return $this->hasMany(AlertaDisponibilidade::class)->where('status', 'pendente');
+    }
 }

@@ -55,4 +55,10 @@ class Requisicao extends Model
 
         return 0;
     }
+
+    public function review()
+    {
+        return $this->hasOne(Review::class, 'requisicao_id');
+    }
 }
+

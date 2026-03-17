@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use App\Models\User;
 use App\Models\Livro;
 use App\Models\Autor;
@@ -343,7 +344,144 @@ class RouteController extends Controller
     public function livrosShow($id)
     {
         $livro = Livro::with(['editora', 'autores'])->findOrFail($id);
-        return view('livros.show', compact('livro'));
+
+        // Carregar reviews ativas com paginação
+        $reviews = $livro->reviewsAtivos()
+            ->with('user')
+            ->latest()
+            ->paginate(7);
+
+        // LIVROS RELACIONADOS usando palavras-chave
+        $livrosRelacionados = collect();
+
+        if (!empty($livro->bibliografia)) {
+            // Extrair termos relevantes da descrição
+            $termos = $this->extrairTermosBusca($livro->bibliografia);
+
+            if (!empty($termos)) {
+                // Buscar livros relacionados
+                $livrosRelacionados = $this->buscarLivrosRelacionados($livro, $termos);
+            }
+        }
+
+        return view('livros.show', compact('livro', 'reviews', 'livrosRelacionados'));
+    }
+
+    /**
+     * Buscar livros relacionados por palavras-chave
+     */
+    private function buscarLivrosRelacionados(Livro $livro, array $termos)
+    {
+        if (empty($termos)) {
+            return collect();
+        }
+
+        $query = Livro::with(['autores', 'editora'])
+            ->where('id', '!=', $livro->id)
+            ->whereNotNull('bibliografia')
+            ->where('bibliografia', '!=', '');
+
+        // Construir busca por palavras-chave
+        $query->where(function($q) use ($termos) {
+            foreach ($termos as $termo) {
+                if (strlen($termo) > 3) {
+                    $q->orWhere('bibliografia', 'LIKE', "%{$termo}%")
+                        ->orWhere('nome', 'LIKE', "%{$termo}%");
+                }
+            }
+        });
+
+        $candidatos = $query->get();
+
+        if ($candidatos->isEmpty()) {
+            return collect();
+        }
+
+        // Calcular score para cada candidato
+        $candidatosComScore = $candidatos->map(function($candidato) use ($termos) {
+            $score = 0;
+            $textoCompleto = ($candidato->nome ?? '') . ' ' . ($candidato->bibliografia ?? '');
+            $textoCompleto = mb_strtolower($this->removerAcentos($textoCompleto));
+
+            foreach ($termos as $termo) {
+                $termoLower = mb_strtolower($termo);
+                $score += substr_count($textoCompleto, $termoLower) * 2;
+            }
+
+            $candidato->score = $score;
+            return $candidato;
+        });
+
+        // Filtrar com score mínimo e ordenar
+        return $candidatosComScore
+            ->filter(fn($c) => $c->score > 0)
+            ->sortByDesc('score')
+            ->take(3)
+            ->values();
+    }
+
+    /**
+     * Extrair termos relevantes da descrição
+     */
+    private function extrairTermosBusca(string $texto): array
+    {
+        // Remover tags HTML se houver
+        $texto = strip_tags($texto);
+
+        // Converter para minúsculas e remover acentos
+        $texto = $this->removerAcentos(mb_strtolower($texto));
+
+        // Remover pontuação e caracteres especiais
+        $texto = preg_replace('/[^\p{L}\p{N}\s]/u', ' ', $texto);
+
+        // Lista de stop words em português
+        $stopWords = [
+            'livro', 'sobre', 'este', 'esta', 'estes', 'estas', 'com', 'para',
+            'uma', 'umas', 'como', 'mais', 'muito', 'pode', 'ser', 'quando',
+            'tambem', 'ainda', 'entre', 'apos', 'antes', 'durante', 'sem',
+            'historia', 'obra', 'autor', 'autores', 'editora', 'pagina',
+            'capitulo', 'romance', 'conto', 'texto', 'descricao', 'tem', 'seus',
+            'sua', 'suas', 'seu', 'meu', 'minha', 'nosso', 'nossa', 'deste',
+            'desta', 'destes', 'destas', 'nesse', 'neste', 'nessa', 'nesta',
+            'aquele', 'aquela', 'aqueles', 'aquelas', 'isso', 'isto', 'aquilo',
+            'porque', 'pois', 'porem', 'portanto', 'assim', 'entao', 'enquanto'
+        ];
+
+        // Dividir em palavras
+        $palavras = preg_split('/\s+/', $texto, -1, PREG_SPLIT_NO_EMPTY);
+
+        // Filtrar stop words e palavras curtas
+        $palavras = array_filter($palavras, function($palavra) use ($stopWords) {
+            return strlen($palavra) > 3 && !in_array($palavra, $stopWords);
+        });
+
+        // Contar frequência das palavras
+        $frequencia = array_count_values($palavras);
+
+        // Ordenar por frequência (mais frequentes primeiro)
+        arsort($frequencia);
+
+        // Pegar as 8 palavras mais frequentes
+        $termos = array_slice(array_keys($frequencia), 0, 8);
+
+        return $termos;
+    }
+
+    /**
+     * Remover acentos de uma string
+     */
+    private function removerAcentos(string $texto): string
+    {
+        $acentos = [
+            'á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a', 'ä' => 'a',
+            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
+            'ó' => 'o', 'ò' => 'o', 'ô' => 'o', 'õ' => 'o', 'ö' => 'o',
+            'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u',
+            'ç' => 'c', 'ñ' => 'n',
+        ];
+
+        return strtr($texto, $acentos);
     }
 
     public function livrosEdit($id)
@@ -650,4 +788,6 @@ class RouteController extends Controller
 
         return back()->with('sucesso', 'Foto de perfil removida com sucesso!');
     }
+
+
 }

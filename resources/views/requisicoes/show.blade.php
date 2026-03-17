@@ -1,10 +1,33 @@
-<x-layouts.layout title="Detalhes da Requisição">
+<x-layouts.layout title="Detalhe da Requisição">
     <div class="max-w-4xl mx-auto">
+        {{-- Botão voltar --}}
+        <div class="mb-4">
+            <a href="{{ route('requisicoes.index') }}" class="btn btn-ghost btn-sm">
+                ← Voltar para a lista
+            </a>
+        </div>
+
+        {{-- MENSAGENS DE SUCESSO/ERRO --}}
+        @if(session('sucesso'))
+            <div class="alert alert-success mb-6 shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{{ session('sucesso') }}</span>
+            </div>
+        @endif
+
+        @if(session('erro'))
+            <div class="alert alert-error mb-6 shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{{ session('erro') }}</span>
+            </div>
+        @endif
+
         <div class="flex justify-between items-center mb-8">
             <h1 class="text-3xl font-bold">Requisição {{ $requisicao->codigo }}</h1>
-            <a href="{{ route('requisicoes.index') }}" class="btn btn-ghost">
-                Voltar
-            </a>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -24,12 +47,20 @@
                                     $statusClasses = [
                                         'pendente' => 'badge-warning',
                                         'ativo' => 'badge-info',
+                                        'devolucao_solicitada' => 'badge-warning',
                                         'concluido' => 'badge-success',
                                         'atrasado' => 'badge-error',
                                     ];
+                                    $statusTexts = [
+                                        'pendente' => 'Pendente',
+                                        'ativo' => 'Ativo',
+                                        'devolucao_solicitada' => 'Devolução Solicitada',
+                                        'concluido' => 'Concluído',
+                                        'atrasado' => 'Atrasado',
+                                    ];
                                 @endphp
                                 <span class="badge {{ $statusClasses[$requisicao->status] ?? 'badge-ghost' }} badge-lg">
-                                    {{ ucfirst($requisicao->status) }}
+                                    {{ $statusTexts[$requisicao->status] ?? $requisicao->status }}
                                 </span>
                             </div>
                             <div>
@@ -85,37 +116,55 @@
                 </div>
             </div>
 
-            {{-- Cidadão --}}
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body">
-                    <h2 class="card-title text-xl mb-4">Cidadão</h2>
+            <div>
+                <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <h2 class="card-title text-xl mb-4">Cidadão</h2>
 
-                    <div class="flex items-center gap-4 mb-4">
-                        <div class="avatar">
-                            <div class="w-12 h-12 rounded-full ring ring-primary ring-offset-base-100 ring-offset-1">
-                                @if($requisicao->user->profile_photo_url)
-                                    <img src="{{ $requisicao->user->profile_photo_url }}" alt="{{ $requisicao->user->name }}" />
-                                @else
-                                    <div class="bg-neutral text-neutral-content text-lg flex items-center justify-center w-full h-full">
-                                        {{ substr($requisicao->user->name, 0, 1) }}
-                                    </div>
-                                @endif
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="avatar">
+                                <div class="w-12 h-12 rounded-full ring ring-primary ring-offset-base-100 ring-offset-1">
+                                    @if($requisicao->user->profile_photo_url)
+                                        <img src="{{ $requisicao->user->profile_photo_url }}" alt="{{ $requisicao->user->name }}" />
+                                    @else
+                                        <div class="bg-neutral text-neutral-content text-lg flex items-center justify-center w-full h-full">
+                                            {{ substr($requisicao->user->name, 0, 1) }}
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                            <div>
+                                <p class="font-bold">{{ $requisicao->user->name }}</p>
+                                <p class="text-sm text-base-content/70">{{ $requisicao->user->email }}</p>
                             </div>
                         </div>
-                        <div>
-                            <p class="font-bold">{{ $requisicao->user->name }}</p>
-                            <p class="text-sm text-base-content/70">{{ $requisicao->user->email }}</p>
-                        </div>
-                    </div>
 
-                    @if(auth()->user()->isBibliotecario())
-                        <a href="{{ route('requisicoes.historico', $requisicao->user) }}"
-                           class="btn btn-outline btn-sm w-full">
-                            Ver Histórico do Cidadão
-                        </a>
-                    @endif
+                        @if(auth()->user()->isBibliotecario())
+                            <a href="{{ route('requisicoes.historico', $requisicao->user) }}"
+                               class="btn btn-outline btn-sm w-full">
+                                Ver Histórico do Cidadão
+                            </a>
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>
+
+        {{-- BOTÃO DE REVIEW (sempre visível para requisições concluídas) --}}
+        @if($requisicao->status === 'concluido' && $requisicao->user_id === auth()->id())
+            <div class="mt-8">
+                <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <h2 class="card-title text-2xl mb-4">Avaliar Livro</h2>
+                        <p class="mb-4">Gostaste do livro? Partilha a tua opinião com outros leitores.</p>
+
+                        {{-- Botão sempre visível --}}
+                        <a href="{{ route('reviews.create', $requisicao) }}" class="btn btn-info w-full sm:w-auto">
+                            Escrever Review
+                        </a>
+                    </div>
+                </div>
+            </div>
+        @endif
     </div>
 </x-layouts.layout>

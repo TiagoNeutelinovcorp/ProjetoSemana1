@@ -5,6 +5,8 @@ use App\Http\Controllers\RouteController;
 use App\Http\Controllers\RequisicaoController;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Http\Controllers\GoogleBooksController;
+use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\AlertaDisponibilidadeController;
 
 // ==================== ROTAS PÚBLICAS ====================
 Route::get('/', [RouteController::class, 'home'])->name('home');
@@ -141,4 +143,30 @@ Route::middleware(['auth', 'two-factor', 'can:isBibliotecario'])->group(function
     Route::get('/sugestoes-livros', [GoogleBooksController::class, 'listarSugestoes'])->name('google-books.sugestoes');
     Route::post('/sugestoes/{sugestao}/aprovar', [GoogleBooksController::class, 'aprovarSugestao'])->name('google-books.sugestoes.aprovar');
     Route::post('/sugestoes/{sugestao}/rejeitar', [GoogleBooksController::class, 'rejeitarSugestao'])->name('google-books.sugestoes.rejeitar');
+});
+
+
+// ==================== REVIEWS ====================
+Route::middleware(['auth', 'two-factor'])->group(function () {
+    // Criar review (após devolução)
+    Route::get('/reviews/create/{requisicao}', [ReviewController::class, 'create'])->name('reviews.create');
+    Route::post('/reviews/{requisicao}', [ReviewController::class, 'store'])->name('reviews.store');
+});
+
+// ==================== ADMIN REVIEWS ====================
+Route::middleware(['auth', 'two-factor', 'can:isBibliotecario'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/reviews', [ReviewController::class, 'adminIndex'])->name('reviews.index');
+    Route::get('/reviews/{review}', [ReviewController::class, 'adminShow'])->name('reviews.show');
+    Route::post('/reviews/{review}/aprovar', [ReviewController::class, 'aprovar'])->name('reviews.aprovar');
+    Route::post('/reviews/{review}/recusar', [ReviewController::class, 'recusar'])->name('reviews.recusar');
+});
+
+// ==================== ALERTAS DE DISPONIBILIDADE ====================
+Route::middleware(['auth', 'two-factor'])->group(function () {
+    Route::post('/livros/{livro}/alertar', [AlertaDisponibilidadeController::class, 'store'])
+        ->name('alertas.store');
+    Route::delete('/alertas/{alerta}', [AlertaDisponibilidadeController::class, 'destroy'])
+        ->name('alertas.cancelar');
+    Route::get('/alertas', [AlertaDisponibilidadeController::class, 'index'])
+        ->name('alertas.index');
 });

@@ -3,6 +3,9 @@
         <div class="flex justify-between items-center mb-8">
             <div>
                 <h1 class="text-3xl font-bold">Resultados para "{{ $query }}"</h1>
+                @if(isset($totalItems))
+                    <p class="text-base-content/70 mt-1">{{ $totalItems }} livros encontrados | Página {{ $page }} de {{ $totalPages }}</p>
+                @endif
             </div>
             <a href="{{ route('google-books.search.form') }}" class="btn btn-ghost">
                 ← Nova Pesquisa
@@ -52,6 +55,21 @@
                                 <span class="font-bold w-16">ISBN:</span>
                                 <span class="font-mono">{{ $book['isbn'] ?? 'N/A' }}</span>
                             </p>
+
+                            {{-- PREÇO --}}
+                            @if(isset($book['preco']) && $book['preco'] > 0)
+                                <p class="flex items-start gap-2 mt-2">
+                                    <span class="font-bold w-16">Preço:</span>
+                                    <span class="text-success font-bold">
+                                        {{ $book['moeda'] ?? 'EUR' }} {{ number_format($book['preco'], 2, ',', '.') }}
+                                    </span>
+                                </p>
+                            @else
+                                <p class="flex items-start gap-2 mt-2">
+                                    <span class="font-bold w-16">Preço:</span>
+                                    <span class="text-base-content/50">Não disponível</span>
+                                </p>
+                            @endif
                         </div>
 
                         <div class="card-actions justify-end mt-2">
@@ -70,6 +88,7 @@
                                         <input type="hidden" name="capa_grande" value="{{ $book['capa_grande'] }}">
                                         <input type="hidden" name="paginas" value="{{ $book['paginas'] }}">
                                         <input type="hidden" name="data_publicacao" value="{{ $book['data_publicacao'] }}">
+                                        <input type="hidden" name="preco" value="{{ $book['preco'] ?? 0 }}">
 
                                         <button type="submit" class="btn btn-xs btn-success">
                                             <svg class="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -94,7 +113,15 @@
                                             <div class="py-4">
                                                 <p>Confirmas que desejas sugerir o livro</p>
                                                 <p class="font-bold text-lg my-2">"{{ $book['titulo'] }}"</p>
-                                                <p class="text-sm text-base-content/70">Após sugerires, um administrador irá avaliar e aprovar a inclusão do livro na biblioteca.</p>
+
+                                                @if(isset($book['preco']) && $book['preco'] > 0)
+                                                    <p class="text-sm mt-2">
+                                                        <span class="font-bold">Preço:</span>
+                                                        <span class="text-success">{{ $book['moeda'] ?? 'EUR' }} {{ number_format($book['preco'], 2, ',', '.') }}</span>
+                                                    </p>
+                                                @endif
+
+                                                <p class="text-sm text-base-content/70 mt-4">Após sugerires, um administrador irá avaliar e aprovar a inclusão do livro na biblioteca.</p>
                                             </div>
                                             <div class="modal-action">
                                                 <form method="dialog">
@@ -111,6 +138,7 @@
                                                     <input type="hidden" name="capa_grande" value="{{ $book['capa_grande'] }}">
                                                     <input type="hidden" name="paginas" value="{{ $book['paginas'] }}">
                                                     <input type="hidden" name="data_publicacao" value="{{ $book['data_publicacao'] }}">
+                                                    <input type="hidden" name="preco" value="{{ $book['preco'] ?? 0 }}">
                                                     <button type="submit" class="btn btn-warning">
                                                         Confirmar Sugestão
                                                     </button>
@@ -135,7 +163,7 @@
         </div>
 
         {{-- PAGINAÇÃO --}}
-        @if($totalPages > 1)
+        @if(isset($totalPages) && $totalPages > 1)
             <div class="mt-8 flex justify-center">
                 <div class="join">
                     {{-- Botão Anterior --}}

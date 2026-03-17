@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 use App\Notifications\RequisicaoConfirmadaCidadao;
 use App\Notifications\NovaRequisicaoAdmin;
 use App\Notifications\SolicitacaoDevolucaoAdmin;
+use App\Notifications\LivroDisponivelNotification;
+use App\Models\AlertaDisponibilidade;
 
 
 class RequisicaoController extends Controller
@@ -162,6 +164,33 @@ class RequisicaoController extends Controller
                 'dias_atraso' => $diasAtraso,
             ]);
         });
+
+        // 👇 PROCESSAR ALERTAS DE DISPONIBILIDADE
+        $livro = $requisicao->livro;
+
+        // Verificar se o livro está disponível (já deve estar, pois foi devolvido)
+        if ($livro->isDisponivel()) {
+            // Buscar todos os alertas pendentes para este livro
+            $alertas = AlertaDisponibilidade::pendentes()
+                ->where('livro_id', $livro->id)
+                ->with('user')
+                ->get();
+
+            foreach ($alertas as $alerta) {
+                try {
+                    // Enviar email para o utilizador
+                    $alerta->user->notify(new LivroDisponivelNotification($livro));
+
+                    // Marcar alerta como enviado
+                    $alerta->update([
+                        'status' => 'enviado',
+                        'notificado_em' => now(),
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Erro ao enviar notificação de disponibilidade: ' . $e->getMessage());
+                }
+            }
+        }
 
         return redirect()->route('requisicoes.index')
             ->with('sucesso', 'Devolução confirmada com sucesso!');
