@@ -4,6 +4,7 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 use App\Console\Commands\SendDevolucaoReminders;
+use App\Console\Commands\ProcessarCarrinhosAbandonados;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -11,3 +12,7 @@ Artisan::command('inspire', function () {
 
 // Enviar lembretes todos os dias às 9:00 da manhã
 Schedule::command('reminders:devolucao')->dailyAt('09:00');
+
+Schedule::command(ProcessarCarrinhosAbandonados::class)
+    ->hourly()
+    ->withoutOverlapping();

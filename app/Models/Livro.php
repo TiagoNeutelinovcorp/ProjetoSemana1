@@ -93,4 +93,14 @@ class Livro extends Model
     {
         return $this->hasMany(AlertaDisponibilidade::class)->where('status', 'pendente');
     }
+
+    public function carrinhos()
+    {
+        return $this->hasMany(Carrinho::class);
+    }
+
+    public function encomendaItens()
+    {
+        return $this->hasMany(EncomendaItem::class);
+    }
 }

@@ -45,7 +45,6 @@ class User extends Authenticatable
     {
         return $this->role === 'bibliotecario';
     }
-
     public function isCliente(): bool
     {
         return $this->role === 'cliente';
@@ -81,5 +80,27 @@ class User extends Authenticatable
     public function alertasPendentes()
     {
         return $this->hasMany(AlertaDisponibilidade::class)->where('status', 'pendente');
+    }
+
+    public function carrinho()
+    {
+        return $this->hasMany(Carrinho::class);
+    }
+
+    public function encomendas()
+    {
+        return $this->hasMany(Encomenda::class);
+    }
+
+    public function getCarrinhoCountAttribute()
+    {
+        return $this->carrinho()->count();
+    }
+
+    public function getCarrinhoTotalAttribute()
+    {
+        return $this->carrinho()->with('livro')->get()->sum(function($item) {
+            return $item->livro->preco * $item->quantidade;
+        });
     }
 }

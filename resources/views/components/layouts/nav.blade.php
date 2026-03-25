@@ -91,6 +91,39 @@
                                 </li>
                             @endif
 
+                            @if(auth()->user()->isBibliotecario() && auth()->user()->two_factor_secret)
+                                <li>
+                                    <a href="{{ route('admin.encomendas.index') }}" class="flex items-center gap-2">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                        </svg>
+                                        Encomendas
+                                     </a>
+                                </li>
+                            @endif
+                            {{-- Menu utilizador --}}
+                            @if(auth()->user()->two_factor_secret)
+                                <li>
+                                    <a href="{{ route('carrinho.index') }}" class="flex items-center gap-2">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                                        </svg>
+                                        Carrinho
+                                        @if(auth()->user()->carrinho_count > 0)
+                                            <span class="badge badge-primary badge-sm">{{ auth()->user()->carrinho_count }}</span>
+                                        @endif
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ route('encomendas.minhas') }}" class="flex items-center gap-2">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                        </svg>
+                                        Minhas Encomendas
+                                    </a>
+                                </li>
+                            @endif
+
                             {{-- MINHAS REQUISIÇÕES --}}
                             @if(auth()->user()->two_factor_secret)
                                 <li>

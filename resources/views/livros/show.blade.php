@@ -141,6 +141,23 @@
                                 @endif
                             @endauth
 
+                                {{-- Botão de compra --}}
+                            @auth
+                                 @if(auth()->user()->two_factor_secret)
+                                    @if($livro->isDisponivel())
+                                        <form action="{{ route('carrinho.adicionar', $livro) }}" method="POST" class="inline">
+                                            @csrf
+                                                <button type="submit" class="btn btn-primary">
+                                                    <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                                                    </svg>
+                                                    Comprar
+                                                </button>
+                                        </form>
+                                    @endif
+                                 @endif
+                            @endauth
+
                             {{-- BOTÃO DE ALERTA PARA LIVROS INDISPONÍVEIS --}}
                             @auth
                                 @if(auth()->user()->two_factor_secret && !$livro->isDisponivel())
@@ -287,13 +304,20 @@
                         <div class="flex gap-4 p-4 bg-base-100 rounded-box shadow-sm hover:shadow-md transition-shadow">
                             {{-- Foto do utilizador --}}
                             <div class="flex-shrink-0">
+                                @php
+                                    $user = $review->user;
+                                    $userName = $user ? $user->name : 'Utilizador desconhecido';
+                                    $userInitial = $user ? substr($user->name, 0, 1) : '?';
+                                    $userPhoto = ($user && $user->profile_photo_url) ? $user->profile_photo_url : null;
+                                @endphp
+
                                 <div class="avatar">
                                     <div class="w-12 h-12 rounded-full ring ring-primary ring-offset-base-100 ring-offset-1">
-                                        @if($review->user->profile_photo_url)
-                                            <img src="{{ $review->user->profile_photo_url }}" alt="{{ $review->user->name }}" />
+                                        @if($userPhoto)
+                                            <img src="{{ $userPhoto }}" alt="{{ $userName }}" />
                                         @else
                                             <div class="bg-neutral text-neutral-content text-lg flex items-center justify-center w-full h-full">
-                                                {{ substr($review->user->name, 0, 1) }}
+                                                {{ $userInitial }}
                                             </div>
                                         @endif
                                     </div>
@@ -302,6 +326,11 @@
 
                             {{-- Conteúdo da review --}}
                             <div class="flex-1 min-w-0">
+                                {{-- Nome do utilizador (opcional) --}}
+                                @if($user)
+                                    <p class="text-sm font-medium">{{ $user->name }}</p>
+                                @endif
+
                                 <div class="rating rating-xs mb-1">
                                     @for($i = 1; $i <= 5; $i++)
                                         @if($i <= $review->rating)

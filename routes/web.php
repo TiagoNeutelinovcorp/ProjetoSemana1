@@ -7,6 +7,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Http\Controllers\GoogleBooksController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\AlertaDisponibilidadeController;
+use App\Http\Controllers\EncomendaController;
 
 // ==================== ROTAS PÚBLICAS ====================
 Route::get('/', [RouteController::class, 'home'])->name('home');
@@ -170,3 +171,34 @@ Route::middleware(['auth', 'two-factor'])->group(function () {
     Route::get('/alertas', [AlertaDisponibilidadeController::class, 'index'])
         ->name('alertas.index');
 });
+
+
+// ==================== CARRINHO DE COMPRAS ====================
+Route::middleware(['auth', 'two-factor'])->group(function () {
+    // Carrinho
+    Route::get('/carrinho', [EncomendaController::class, 'verCarrinho'])->name('carrinho.index');
+    Route::post('/livros/{livro}/carrinho', [EncomendaController::class, 'adicionarAoCarrinho'])->name('carrinho.adicionar');
+    Route::put('/carrinho/{item}', [EncomendaController::class, 'atualizarCarrinho'])->name('carrinho.atualizar');
+    Route::delete('/carrinho/{item}', [EncomendaController::class, 'removerDoCarrinho'])->name('carrinho.remover');
+
+    // Checkout
+    Route::get('/checkout/morada', [EncomendaController::class, 'checkoutMorada'])->name('checkout.morada');
+    Route::post('/checkout/morada', [EncomendaController::class, 'checkoutProcessarMorada'])->name('checkout.processar-morada');
+    Route::get('/checkout/pagamento', [EncomendaController::class, 'checkoutPagamento'])->name('checkout.pagamento');
+    Route::post('/checkout/confirmar', [EncomendaController::class, 'checkoutConfirmar'])->name('checkout.confirmar');
+
+    // Encomendas do utilizador
+    Route::get('/minhas-encomendas', [EncomendaController::class, 'minhasEncomendas'])->name('encomendas.minhas');
+    Route::get('/encomendas/{encomenda}', [EncomendaController::class, 'show'])->name('encomendas.show');
+    Route::get('/encomenda/sucesso', [EncomendaController::class, 'sucesso'])->name('encomendas.sucesso');
+});
+
+// ==================== ADMIN - ENCOMENDAS ====================
+Route::middleware(['auth', 'two-factor', 'can:isBibliotecario'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/encomendas', [EncomendaController::class, 'adminIndex'])->name('encomendas.index');
+    Route::put('/encomendas/{encomenda}/status', [EncomendaController::class, 'adminUpdateStatus'])->name('encomendas.status');
+});
+
+// ==================== WEBHOOK STRIPE (AGORA COM SPATIE) ====================
+// 👇 SUBSTITUI a rota antiga por esta (NÃO precisa de controller)
+Route::stripeWebhooks('stripe/webhook');
