@@ -202,3 +202,10 @@ Route::middleware(['auth', 'two-factor', 'can:isBibliotecario'])->prefix('admin'
 // ==================== WEBHOOK STRIPE (AGORA COM SPATIE) ====================
 // 👇 SUBSTITUI a rota antiga por esta (NÃO precisa de controller)
 Route::stripeWebhooks('stripe/webhook');
+
+// Logs (apenas admin)
+Route::middleware(['auth', 'two-factor', 'can:isBibliotecario'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/logs', [App\Http\Controllers\Admin\LogController::class, 'index'])->name('logs.index');
+});
+
+Route::get('/requisicoes/{requisicao}/solicitar-devolucao', [RequisicaoController::class, 'solicitarDevolucao'])->name('requisicoes.solicitar-devolucao');

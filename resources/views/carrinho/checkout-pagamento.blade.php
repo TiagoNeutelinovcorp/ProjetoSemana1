@@ -156,5 +156,5 @@
             });
         });
     </script>
-    @endpush
+    @endpushs
 </x-layouts.layout>

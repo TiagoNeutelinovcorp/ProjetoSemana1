@@ -135,8 +135,8 @@
                                 <div class="text-xs text-base-content/50">ISBN: {{ $req->livro->isbn }}</div>
                             </td>
                             <td>
-                                <div class="font-medium">{{ $req->user->name }}</div>
-                                <div class="text-xs text-base-content/50">{{ $req->user->email }}</div>
+                                <div class="font-medium">{{ $requisicao->user?->name ?? 'Utilizador não encontrado' }}</div>
+                                <div class="text-xs text-base-content/50">{{ $requisicao->user?->email ?? '-' }}</div>
                             </td>
                             <td class="text-sm">{{ $req->data_requisicao->format('d/m/Y') }}</td>
                             <td class="text-sm">

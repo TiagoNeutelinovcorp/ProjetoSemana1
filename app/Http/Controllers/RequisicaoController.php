@@ -13,6 +13,7 @@ use App\Notifications\NovaRequisicaoAdmin;
 use App\Notifications\SolicitacaoDevolucaoAdmin;
 use App\Notifications\LivroDisponivelNotification;
 use App\Models\AlertaDisponibilidade;
+use App\Helpers\LogHelper;
 
 
 class RequisicaoController extends Controller
@@ -104,6 +105,11 @@ class RequisicaoController extends Controller
                 'data_prevista_devolucao' => $dataPrevista,
                 'status' => 'ativo',
             ]);
+
+        LogHelper::registrar('requisicoes', 'criar', $requisicao->id, [
+            'livro' => $livro->nome,
+            'data_prevista' => $dataPrevista->format('d/m/Y')
+    ]);
         });
 
         // ==================== ENVIO DE EMAILS ====================
@@ -163,6 +169,11 @@ class RequisicaoController extends Controller
                 'status' => 'concluido',
                 'dias_atraso' => $diasAtraso,
             ]);
+
+        LogHelper::registrar('requisicoes', 'devolver', $requisicao->id, [
+            'livro' => $requisicao->livro->nome,
+            'dias_atraso' => $diasAtraso
+    ]);
         });
 
         // 👇 PROCESSAR ALERTAS DE DISPONIBILIDADE

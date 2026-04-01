@@ -22,10 +22,9 @@ return [
      * https://stripe.com/docs/api#event_types.
      */
     'jobs' => [
-        'payment_intent_succeeded' => \App\Jobs\StripeWebhooks\PaymentIntentSucceededJob::class,
-        'payment_intent_payment_failed' => \App\Jobs\StripeWebhooks\PaymentIntentFailedJob::class,
+        'payment_intent.succeeded' => \App\Jobs\StripeWebhooks\PaymentIntentSucceededJob::class,
+        'payment_intent.payment_failed' => \App\Jobs\StripeWebhooks\PaymentIntentFailedJob::class,
     ],
-
     /*
      * The classname of the model to be used. The class should equal or extend
      * Spatie\WebhookClient\Models\WebhookCall.
