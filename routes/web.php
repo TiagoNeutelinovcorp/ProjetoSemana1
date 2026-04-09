@@ -200,7 +200,6 @@ Route::middleware(['auth', 'two-factor', 'can:isBibliotecario'])->prefix('admin'
 });
 
 // ==================== WEBHOOK STRIPE (AGORA COM SPATIE) ====================
-// 👇 SUBSTITUI a rota antiga por esta (NÃO precisa de controller)
 Route::stripeWebhooks('stripe/webhook');
 
 // Logs (apenas admin)
@@ -209,3 +208,20 @@ Route::middleware(['auth', 'two-factor', 'can:isBibliotecario'])->prefix('admin'
 });
 
 Route::get('/requisicoes/{requisicao}/solicitar-devolucao', [RequisicaoController::class, 'solicitarDevolucao'])->name('requisicoes.solicitar-devolucao');
+
+
+
+use App\Http\Controllers\ChatController;
+
+// Chat (dentro do grupo auth e two-factor)
+Route::middleware(['auth', 'two-factor'])->prefix('chat')->name('chat.')->group(function () {
+    Route::get('/', [ChatController::class, 'index'])->name('index');
+    Route::get('/{chatRoom}', [ChatController::class, 'show'])->name('show');
+    Route::post('/store', [ChatController::class, 'store'])->name('store');
+    Route::post('/{chatRoom}/send-message', [ChatController::class, 'sendMessage'])->name('send-message');
+    Route::post('/{chatRoom}/add-participant', [ChatController::class, 'addParticipant'])->name('add-participant');
+    Route::post('/{chatRoom}/leave', [ChatController::class, 'leave'])->name('leave');
+    Route::get('/users/search', [ChatController::class, 'searchUsers'])->name('search-users');
+    Route::delete('/chat/{chatRoom}/kick/{user}', [ChatController::class, 'kickMember'])->name('chat.kick');
+
+});

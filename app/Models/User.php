@@ -103,4 +103,16 @@ class User extends Authenticatable
             return $item->livro->preco * $item->quantidade;
         });
     }
+    /**
+     * Get the user's profile photo or fallback
+     */
+    public function getAvatarAttribute()
+    {
+        if ($this->profile_photo_path) {
+            return asset('storage/' . $this->profile_photo_path);
+        }
+
+        // Retorna null para usar fallback com inicial
+        return null;
+    }
 }
